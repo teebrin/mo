@@ -1,4 +1,5 @@
-add_executable(mo-tests mo-test.cpp)
+add_executable(mo-tests mo-test.cpp
+        alloc-tracker.cpp)
 find_package(GTest REQUIRED)
 
 target_link_libraries(mo-tests

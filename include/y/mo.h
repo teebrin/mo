@@ -16,11 +16,11 @@ public:
         [[nodiscard]] auto index() const { return index_; }
 
         [[nodiscard]] zstring_view original() const {
-            return mo_->original_string(index_);
+            return mo_->unchecked_original_string(index_);
         }
 
         [[nodiscard]] zstring_view translation() const {
-            return mo_->translation_string(index_);
+            return mo_->unchecked_translation_string(index_);
         }
 
     private:
@@ -79,30 +79,50 @@ public:
         return *reinterpret_cast<const uint32_t*>(mmap_.data() + 24);
     }
 
-    [[nodiscard]] zstring_view original_string(ptrdiff_t index) const {
+    [[nodiscard]] zstring_view original_string(const ptrdiff_t index) const {
+        return unchecked_original_string(check_index(index));
+    }
+
+    [[nodiscard]] zstring_view translation_string(const ptrdiff_t index) const {
+        return unchecked_translation_string(check_index(index));
+    }
+
+    [[nodiscard]] ptrdiff_t find_original_index(std::string_view context, std::string_view original) const;
+
+    [[nodiscard]] ptrdiff_t find_original_index(const std::string_view original) const {
+        return find_original_index({}, original);
+    }
+
+    static unsigned long hash_string(std::string_view context, std::string_view original);
+    static unsigned long hash_string(const std::string_view original) { return hash_string({}, original); }
+
+    [[nodiscard]] Iterator begin() const { return Iterator{this, 0}; }
+    [[nodiscard]] Iterator end() const { return Iterator{this, static_cast<ptrdiff_t>(size())}; }
+
+private:
+    [[nodiscard]] zstring_view unchecked_original_string(const ptrdiff_t index) const {
         auto* entry = mmap_.data() + original_offset() + index * 8;
         const uint32_t size = *reinterpret_cast<const uint32_t*>(entry);
         const uint32_t data_offset = *reinterpret_cast<const uint32_t*>(entry + 4);
         return {mmap_.data() + data_offset, size};
     }
 
-    [[nodiscard]] zstring_view translation_string(ptrdiff_t index) const {
+    [[nodiscard]] zstring_view unchecked_translation_string(const ptrdiff_t index) const {
         auto* entry = mmap_.data() + translation_offset() + index * 8;
         const uint32_t size = *reinterpret_cast<const uint32_t*>(entry);
         const uint32_t data_offset = *reinterpret_cast<const uint32_t*>(entry + 4);
         return {mmap_.data() + data_offset, size};
     }
 
-    [[nodiscard]] ptrdiff_t find_original_index(std::string_view str) const;
-
-    static unsigned long hash_string(std::string_view str);
-
-    [[nodiscard]] Iterator begin() const { return Iterator{this, 0}; }
-    [[nodiscard]] Iterator end() const { return Iterator{this, static_cast<ptrdiff_t>(size())}; }
-
-private:
     [[nodiscard]] ptrdiff_t original_index(const unsigned long hash_index) const {
         return *reinterpret_cast<const uint32_t*>(mmap_.data() + hash_offset() + hash_index * 4);
+    }
+
+    [[nodiscard]] ptrdiff_t check_index(const ptrdiff_t index) const {
+        if (index < 0 || index >= size()) {
+            throw std::out_of_range("Index out of range");
+        }
+        return index;
     }
 
     mio::mmap_source mmap_;

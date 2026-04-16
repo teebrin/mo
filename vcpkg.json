@@ -1,0 +1,9 @@
+{
+  "name" : "mo",
+  "version-string" : "1.0.0",
+  "builtin-baseline" : "81e3c888ef717a026eb57bb2f3cb0dbd30246271",
+  "dependencies" : [ "gtest", {
+    "name" : "mio",
+    "version>=" : "2023-03-03"
+  } ]
+}

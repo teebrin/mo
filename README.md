@@ -51,12 +51,26 @@ Map the file once, then construct `Mo` from the map:
 auto file = mio::mmap_source{"locale/fr/LC_MESSAGES/app.mo"};
 const y::mo::Mo catalogue{std::move(file)};
 
+// Missing messages fall back to the original text.
+std::string_view label = catalogue.translate("Save");
+auto contextual = catalogue.translate("menu", "Open");
+// The fallback is called only when the message is missing; its return type
+// determines the result type (here, std::string).
+auto owned = catalogue.translate("Save", [] { return std::string{"Unavailable"}; });
+// Request an optional view instead of falling back to the original text.
+auto optional = catalogue.translate("Save", y::mo::nullopt_fallback);
+
 if (const auto index = catalogue.find_original_index("Save"); index >= 0) {
     const auto translated = catalogue.translation_string(index);
     // `translated` is a zero-copy zstring_view.
     display(translated.c_str());
 }
 ```
+
+The fallback takes no arguments and its return type must be constructible from
+`zstring_view`. The default result is a `std::string_view`;
+its lifetime is tied to the catalogue for a match, or to the original input
+for a missing message.
 
 `find_original_index()` returns `-1` when there is no matching entry. Use the
 index with `original_string()` or `translation_string()` to retrieve either

@@ -4,8 +4,18 @@
 
 #include <mio/mmap.hpp>
 #include <zstring_view.hpp>
+#include <concepts>
+#include <functional>
+#include <optional>
+#include <utility>
 
 namespace y::mo {
+template<typename F>
+concept TranslationFallback = std::invocable<F> &&
+    std::constructible_from<std::invoke_result_t<F>, zstring_view>;
+
+inline constexpr auto nullopt_fallback = []() -> std::optional<zstring_view> { return std::nullopt; };
+
 class Mo {
 public:
     class Value {
@@ -91,6 +101,28 @@ public:
 
     [[nodiscard]] ptrdiff_t find_original_index(const std::string_view original) const {
         return find_original_index({}, original);
+    }
+
+    [[nodiscard]] auto translate(const std::string_view context, const std::string_view original,
+                                 TranslationFallback auto&& fallback) const
+        -> std::invoke_result_t<decltype(fallback)> {
+        if (const auto index = find_original_index(context, original); index >= 0) {
+            return std::invoke_result_t<decltype(fallback)>{unchecked_translation_string(index)};
+        }
+        return std::invoke(std::forward<decltype(fallback)>(fallback));
+    }
+
+    [[nodiscard]] auto translate(const std::string_view original, TranslationFallback auto&& fallback) const
+        -> std::invoke_result_t<decltype(fallback)> {
+        return translate({}, original, std::forward<decltype(fallback)>(fallback));
+    }
+
+    [[nodiscard]] std::string_view translate(const std::string_view context, const std::string_view original) const {
+        return translate(context, original, [original] { return original; });
+    }
+
+    [[nodiscard]] std::string_view translate(const std::string_view original) const {
+        return translate({}, original);
     }
 
     static unsigned long hash_string(std::string_view context, std::string_view original);
